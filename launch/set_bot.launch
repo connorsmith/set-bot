@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <!-- Arguments: Logging -->
+  <arg name="rosbag"      default="false" />
+
+  <include file="$(find connor_set_bot)/launch/hardware.launch" />
+  <!-- <include file="$(find connor_set_bot)/launch/software.launch" /> -->
+
+  <!-- Automated rosbag | overwrites the rosbag from previous run -->
+  <node if="$(arg rosbag)" name="rosbag" pkg="rosbag" type="record" args="-a -O $(env HOME)/log.bag" />
+</launch>
