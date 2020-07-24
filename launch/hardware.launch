@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <!-- Arguments: Logging -->
+  <arg name="rosbag"      default="false" />
+
+  <include file="$(find openni2_launch)/launch/openni2.launch" />
+
+  <!-- Automated rosbag | overwrites the rosbag from previous run -->
+  <node if="$(arg rosbag)" name="rosbag" pkg="rosbag" type="record" args="-a -O $(env HOME)/log.bag" />
+</launch>

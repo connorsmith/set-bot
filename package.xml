@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>connor_set_bot</name>
+  <version>0.0.1</version>
+  <description>Code for OpenCV based Set bot.</description>
+  <license>MIT</license>
+
+  <maintainer email="connor@conthetron.com">Connor Smith</maintainer>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>roscpp</depend>
+  <depend>openni2_launch</depend>
+</package>
