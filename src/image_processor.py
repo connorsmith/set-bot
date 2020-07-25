@@ -24,10 +24,22 @@ class image_converter:
     except CvBridgeError as e:
       print(e)
 
-    (rows,cols,channels) = cv_image.shape
-    if cols > 60 and rows > 60 :
-      cv2.circle(cv_image, (50,50), 10, 255)
+    gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    thresh = cv2.threshold(blurred, 100, 255, cv2.THRESH_BINARY_INV)[1]
 
+    cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
+      cv2.CHAIN_APPROX_SIMPLE)[1]
+
+    cv2.drawContours(cv_image, cnts, -1, (240, 0, 159), 3)
+
+    # add the circle to the image
+    # (rows,cols,channels) = cv_image.shape
+    # if cols > 60 and rows > 60 :
+    #   cv2.circle(cv_image, (50,50), 10, 255)
+
+
+    # show the annotated image
     cv2.imshow("Image window", cv_image)
     cv2.waitKey(3)
 
