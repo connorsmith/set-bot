@@ -57,6 +57,8 @@ class image_converter:
 
     cv2.drawContours(cv_image, cnts, -1, (240, 0, 159), 3)
 
+    cnt_dict = {}
+
     # loop over the contours
     for cnt_index, c in enumerate(cnts):
       # compute the center of the contour, then detect the name of the
@@ -109,23 +111,24 @@ class image_converter:
       cnt_colour = self.colorNames[minDist[1]]
 
       # TODO associate contours to cards
-      try:
-        M = cv2.moments(c)
-        cX = int((M["m10"] / M["m00"]))
-        cY = int((M["m01"] / M["m00"]))
 
-        # then draw the contours and the name of the shape on the image
-        # cv2.drawContours(cv_image, [c], -1, (0, 255, 0), 2)
+      # then draw the contours and the name of the shape on the image
+      # cv2.drawContours(cv_image, [c], -1, (0, 255, 0), 2)
 
-        (x,y),radius = cv2.minEnclosingCircle(c)
-        center = (int(x),int(y))
-        radius = int(radius)
-        cv_image = cv2.circle(cv_image,center,radius,(0,255,0),2)
+      (x,y),radius = cv2.minEnclosingCircle(c)
+      center = (int(x),int(y))
+      radius = int(radius)
+      cv_image = cv2.circle(cv_image,center,radius,(0,255,0),2)
 
-        cv2.putText(cv_image, "%s: %s %s"%(cnt_index, cnt_colour, cnt_shape), center, cv2.FONT_HERSHEY_SIMPLEX,
-          0.5, (255, 255, 255), 2)
-      except:
-        pass
+      # cv2.putText(cv_image, "%s: %s %s"%(cnt_index, cnt_colour, cnt_shape), center, cv2.FONT_HERSHEY_SIMPLEX,
+      #   0.5, (255, 255, 255), 2)
+
+      cnt_dict[cnt_index] = (cnt_colour, cnt_shape, center, radius)
+
+    card_list = cards_from_contours(cnt_dict)
+
+    for card in card_list:
+      cv2.putText(cv_image, str(card), tuple(card._center), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
     # show the annotated image
     cv2.imshow("Image window", cv_image)
@@ -155,7 +158,11 @@ class set_card:
       self._fill == set_card_object._fill and \
       self._shape == set_card_object._shape
 
+  def __str__(self):
+    return "%s %s %s %s"%(self._number, self._color, self._fill, self._shape)
+
 class set_card_list:
+
 
   def __init__(self, cards = []):
     self._cards = cards
@@ -181,6 +188,23 @@ class set_card_list:
           sets_found.append((main_card, second_card, third_card))
 
     return sets_found
+
+
+class optical_set_card:
+
+  def __init__(self, card, center, radius):
+    self._card = card
+    self._center = center
+    self._radius = radius
+
+  def combine(self, new_center):
+    self._card._number += 1
+    # weighted average
+    self._center = (self._card._number - 1) * np.array(self._center) + new_center
+    self._center = self._center / self._card._number
+
+  def __str__(self):
+    return self._card.__str__()
 
 def get_third_card(first_card, second_card):
   # figure out the number
@@ -208,6 +232,25 @@ def get_third_card(first_card, second_card):
     third_card_shape = next(iter(set_card.shapes.difference(set)))
 
   return set_card(third_card_number, third_card_color, third_card_fill, third_card_shape)
+
+
+def cards_from_contours(contour_dict):
+  card_list = []
+
+  for cnt in contour_dict.values():
+    # check overlap between contour and all existing cards
+    contour_center = cnt[2]
+    create_standalone_card = True
+    for card in card_list:
+      if np.linalg.norm(np.array(contour_center) - card._center) < (3 * card._radius):
+        # combine card and contour
+        create_standalone_card = False
+        card.combine(contour_center)
+        continue
+    if create_standalone_card:
+      card_list.append(optical_set_card(set_card(1, cnt[1], 'solid', cnt[0]), cnt[2], cnt[3]))
+
+  return card_list
 
 
 def main(args):
