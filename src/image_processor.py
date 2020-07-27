@@ -79,6 +79,20 @@ class image_converter:
       # print("contour %s, mean %s"%(cnt_index, mean))
 
       # print(self.lab)
+      contour_area = cv2.contourArea(c)
+      if contour_area < 1000:
+        # skip small shapes
+        continue
+
+      if contour_area < 1500:
+        cnt_shape = 'diamond'
+      elif contour_area < 2000:
+        cnt_shape = 'squiggle'
+      else:
+        cnt_shape = 'oval'
+      # contour_perimeter = cv2.arcLength(c, True)
+
+      # print('Contour %s, area %s, perimeter %s'%(cnt_index, contour_area, contour_perimeter))
 
       # loop over the known L*a*b* color values
       for (i, row) in enumerate(self.lab):
@@ -101,8 +115,14 @@ class image_converter:
         cY = int((M["m01"] / M["m00"]))
 
         # then draw the contours and the name of the shape on the image
-        cv2.drawContours(cv_image, [c], -1, (0, 255, 0), 2)
-        cv2.putText(cv_image, "%s: "%(cnt_index) + cnt_colour, (cX, cY), cv2.FONT_HERSHEY_SIMPLEX,
+        # cv2.drawContours(cv_image, [c], -1, (0, 255, 0), 2)
+
+        (x,y),radius = cv2.minEnclosingCircle(c)
+        center = (int(x),int(y))
+        radius = int(radius)
+        cv_image = cv2.circle(cv_image,center,radius,(0,255,0),2)
+
+        cv2.putText(cv_image, "%s: %s %s"%(cnt_index, cnt_colour, cnt_shape), center, cv2.FONT_HERSHEY_SIMPLEX,
           0.5, (255, 255, 255), 2)
       except:
         pass
