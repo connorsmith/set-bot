@@ -9,6 +9,8 @@ import cv2
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
+from collections import OrderedDict
+import numpy as np
 
 class image_converter:
 
@@ -18,24 +20,92 @@ class image_converter:
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber("/camera/rgb/image_raw",Image,self.callback)
 
+    colors = OrderedDict({
+      "red": (255, 0, 0),
+      "green": (0, 200, 0),
+      "purple": (75, 0, 130)})
+
+    # allocate memory for the L*a*b* image, then initialize
+    # the color names list
+
+    self.lab = np.zeros((len(colors), 1, 3), dtype="uint8")
+    self.colorNames = []
+
+    # loop over the colors dictionary
+    for (i, (name, rgb)) in enumerate(colors.items()):
+      # update the L*a*b* array and the color names list
+      self.lab[i] = rgb
+      self.colorNames.append(name)
+
+    self.lab = cv2.cvtColor(self.lab, cv2.COLOR_RGB2LAB)
+
   def callback(self,data):
     try:
       cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
     except CvBridgeError as e:
       print(e)
 
-    gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    thresh = cv2.threshold(blurred, 100, 255, cv2.THRESH_BINARY_INV)[1]
+    blurred = cv2.GaussianBlur(cv_image, (5, 5), 0)
+
+    gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)
+    lab_image = cv2.cvtColor(blurred, cv2.COLOR_BGR2LAB)
+
+    thresh = cv2.threshold(gray, 110, 255, cv2.THRESH_BINARY_INV)[1]
 
     cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
       cv2.CHAIN_APPROX_SIMPLE)[1]
 
     cv2.drawContours(cv_image, cnts, -1, (240, 0, 159), 3)
 
-    # TODO shape detection
-    # TODO identify colour / fill within contour
-    # TODO associate contours to cards
+    # loop over the contours
+    for cnt_index, c in enumerate(cnts):
+      # compute the center of the contour, then detect the name of the
+      # shape using only the contour
+
+      # TODO shape detection\
+
+      local_lab_image = lab_image
+      mask = np.zeros(local_lab_image.shape[:2], dtype="uint8")
+      cv2.drawContours(mask, [c], -1, 255, -1)
+      mask = cv2.erode(mask, None, iterations=2)
+      mean = cv2.mean(local_lab_image, mask=mask)[:3]
+
+      # initialize the minimum distance found thus far
+      minDist = (np.inf, None)
+
+      # cv2.imshow("Mask window", mask)
+      # cv2.waitKey(250)
+
+      # print("contour %s, mean %s"%(cnt_index, mean))
+
+      # print(self.lab)
+
+      # loop over the known L*a*b* color values
+      for (i, row) in enumerate(self.lab):
+        # compute the distance between the current L*a*b*
+        # color value and the mean of the image
+        # d = dist.euclidean(row[0], mean)
+        d = np.linalg.norm(row[0] - mean)
+
+        # if the distance is smaller than the current distance,
+        # then update the bookkeeping variable
+        if d < minDist[0]:
+          minDist = (d, i)
+      # return the name of the color with the smallest distance
+      cnt_colour = self.colorNames[minDist[1]]
+
+      # TODO associate contours to cards
+      try:
+        M = cv2.moments(c)
+        cX = int((M["m10"] / M["m00"]))
+        cY = int((M["m01"] / M["m00"]))
+
+        # then draw the contours and the name of the shape on the image
+        cv2.drawContours(cv_image, [c], -1, (0, 255, 0), 2)
+        cv2.putText(cv_image, "%s: "%(cnt_index) + cnt_colour, (cX, cY), cv2.FONT_HERSHEY_SIMPLEX,
+          0.5, (255, 255, 255), 2)
+      except:
+        pass
 
     # show the annotated image
     cv2.imshow("Image window", cv_image)
